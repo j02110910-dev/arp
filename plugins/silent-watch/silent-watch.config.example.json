@@ -1,0 +1,39 @@
+{
+  "enabled": true,
+  "detectLoops": true,
+  "detectEmptyResponses": true,
+  "detectTimeouts": true,
+  "detectCronMisses": true,
+  "detectAnomalies": true,
+  "detectors": {
+    "maxConsecutiveCalls": 10,
+    "maxConsecutiveEmpty": 3,
+    "stepTimeoutMs": 60000,
+    "contextSnapshotSize": 10
+  },
+  "notifiers": {
+    "console": {
+      "enabled": true,
+      "level": "info"
+    },
+    "wechat": {
+      "enabled": false,
+      "server酱Key": "YOUR_SERVER_CHAN_KEY_HERE"
+    },
+    "telegram": {
+      "enabled": false,
+      "botToken": "YOUR_BOT_TOKEN_HERE",
+      "chatId": "YOUR_CHAT_ID_HERE"
+    },
+    "email": {
+      "enabled": false,
+      "smtpHost": "smtp.gmail.com",
+      "smtpPort": 587,
+      "smtpUser": "your.email@gmail.com",
+      "smtpPass": "your-app-password",
+      "toEmail": "recipient@example.com",
+      "fromEmail": "your.email@gmail.com"
+    }
+  },
+  "alertHistoryPath": "./alert-history.json"
+}

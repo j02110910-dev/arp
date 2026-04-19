@@ -1,0 +1,48 @@
+{
+  "name": "arp",
+  "version": "0.1.0",
+  "description": "Agent Reliability Platform - One package for monitoring, verification, memory, and security of AI agents. npm install arp",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:all": "npm run test:silent-watch && npm run test:output-verifier && npm run test:cognitive-governor && npm run test:permission-sentinel && npm test",
+    "test:silent-watch": "cd plugins/silent-watch && npm test",
+    "test:output-verifier": "cd plugins/output-verifier && npm test",
+    "test:cognitive-governor": "cd plugins/cognitive-governor && npm test",
+    "test:permission-sentinel": "cd plugins/permission-sentinel && npm test",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "ai-agent",
+    "monitoring",
+    "verification",
+    "memory",
+    "security",
+    "agent-reliability",
+    "mcp",
+    "openclaw",
+    "claude-code"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "@types/uuid": "^10.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

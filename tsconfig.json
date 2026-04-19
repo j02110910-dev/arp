@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "sourceMap": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@arp/silent-watch": ["plugins/silent-watch/src"],
+      "@arp/output-verifier": ["plugins/output-verifier/src"],
+      "@arp/cognitive-governor": ["plugins/cognitive-governor/src"],
+      "@arp/permission-sentinel": ["plugins/permission-sentinel/src"]
+    }
+  },
+  "include": ["src/**/*", "plugins/*/src/**/*"],
+  "exclude": ["node_modules", "dist", "**/tests/**", "**/examples/**"]
+}

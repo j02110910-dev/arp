@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+
+# Temp files
+tmp/
+temp/
+*.tmp
+
+# Alert history (keep example)
+alert-history.json
+!alert-history.example.json
+
+# Secrets (never commit)
+*.pem
+*.key
+secrets/

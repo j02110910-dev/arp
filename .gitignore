@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+plugins/*/dist/
+
+# Test artifacts
+coverage/
+plugins/*/coverage/
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Persisted data
+alert-history.json
+verification-reports.json
+cognitive-governor-data.json
+
+# Temp
+tmp/
+temp/
