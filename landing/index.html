@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARP - Agent Reliability Platform | Stop AI Agents From Failing Silently</title>
+  <meta name="description" content="One npm package for monitoring, verification, memory management, and security of your AI agents. Install in seconds.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    .gradient-text { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .glow { box-shadow: 0 0 40px rgba(102, 126, 234, 0.3); }
+    .card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border: 1px solid rgba(102, 126, 234, 0.2); }
+    .pro-card { background: linear-gradient(135deg, #2d1b69 0%, #1a1a2e 100%); border: 1px solid rgba(102, 126, 234, 0.5); }
+    .cmd { background: #0d1117; border: 1px solid #30363d; }
+    .pulse { animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .badge { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100">
+
+  <!-- Nav -->
+  <nav class="fixed top-0 w-full bg-gray-950/90 backdrop-blur border-b border-gray-800 z-50">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-sm">A</div>
+        <span class="font-bold text-lg">ARP</span>
+        <span class="text-xs text-gray-500 ml-1">Agent Reliability Platform</span>
+      </div>
+      <div class="flex gap-6 text-sm text-gray-400">
+        <a href="#features" class="hover:text-white transition">Features</a>
+        <a href="#pricing" class="hover:text-white transition">Pricing</a>
+        <a href="#pro" class="hover:text-white transition text-indigo-400">Get Pro</a>
+        <a href="https://github.com/j02110910-dev/arp" class="hover:text-white transition">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="pt-32 pb-24 px-6">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-sm mb-8">
+        <span class="w-2 h-2 rounded-full bg-green-400 pulse"></span>
+        Now in Public Beta — npm install arp
+      </div>
+      <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
+        Stop Your AI Agents<br>
+        <span class="gradient-text">Failing Silently</span>
+      </h1>
+      <p class="text-xl text-gray-400 mb-10 max-w-2xl mx-auto">
+        One npm package for monitoring, verification, memory management, and security.
+        Your agent says "done" — but is it really? Find out before your users do.
+      </p>
+      <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+        <div class="cmd rounded-lg px-5 py-3 text-left inline-flex items-center gap-3">
+          <span class="text-green-400 text-sm">$</span>
+          <code class="text-indigo-300">npm install arp</code>
+          <button onclick="copyInstall()" class="text-gray-500 hover:text-white text-xs transition">copy</button>
+        </div>
+        <a href="#pricing" class="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg font-semibold hover:opacity-90 transition text-center">
+          Get Pro — $29/mo
+        </a>
+      </div>
+      <p class="text-gray-600 text-sm">
+        MIT Licensed · 159 Tests Passing · Works with OpenAI, Anthropic, DeepSeek, and any LLM
+      </p>
+    </div>
+  </section>
+
+  <!-- Problem -->
+  <section class="py-20 px-6 border-t border-gray-900">
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-3xl font-bold text-center mb-12">AI Agents Break in Ways You Don't Notice</h2>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="card rounded-xl p-6">
+          <div class="text-2xl mb-3">🌀</div>
+          <h3 class="font-semibold mb-2">Infinite Loops</h3>
+          <p class="text-gray-400 text-sm">Agent calls the same tool 47 times with no progress. You're charged for every call.</p>
+        </div>
+        <div class="card rounded-xl p-6">
+          <div class="text-2xl mb-3">📭</div>
+          <h3 class="font-semibold mb-2">Silent NO_REPLY</h3>
+          <p class="text-gray-400 text-sm">Agent crashes and returns nothing. User waits forever. No error, no alert.</p>
+        </div>
+        <div class="card rounded-xl p-6">
+          <div class="text-2xl mb-3">🤥</div>
+          <h3 class="font-semibold mb-2">Hallucinated Claims</h3>
+          <p class="text-gray-400 text-sm">Agent says "API call succeeded." It didn't. You ship a bug no one catches.</p>
+        </div>
+        <div class="card rounded-xl p-6">
+          <div class="text-2xl mb-3">💣</div>
+          <h3 class="font-semibold mb-2">Dangerous Commands</h3>
+          <p class="text-gray-400 text-sm">Agent runs <code class="text-xs bg-gray-800 px-1 rounded">rm -rf /</code> or leaks your API keys in logs. Bad day.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-20 px-6 border-t border-gray-900">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl font-bold text-center mb-12">Everything Your AI Agent Needs</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+
+        <div class="card rounded-xl p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center text-lg">🔍</div>
+            <h3 class="font-bold text-lg">Smart Monitoring</h3>
+          </div>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li>✓ <strong class="text-gray-200">Loop Detection</strong> — same tool, no progress? Instant alert</li>
+            <li>✓ <strong class="text-gray-200">Timeout Detection</strong> — step takes over 60s? Alert</li>
+            <li>✓ <strong class="text-gray-200">Empty Response Detection</strong> — NO_REPLY crash caught</li>
+            <li>✓ <strong class="text-gray-200">Behavior Anomaly</strong> — evasive language, repetition patterns</li>
+            <li>✓ <strong class="text-gray-200">Cron Miss Detection</strong> — scheduled tasks not firing? Alert</li>
+          </ul>
+          <p class="text-xs text-gray-600 mt-3">Alert channels: Console, WeChat, Telegram, Slack, Feishu, Email</p>
+        </div>
+
+        <div class="card rounded-xl p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center text-lg">✅</div>
+            <h3 class="font-bold text-lg">Output Verification</h3>
+          </div>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li>✓ <strong class="text-gray-200">Schema Validation</strong> — validate against JSON Schema</li>
+            <li>✓ <strong class="text-gray-200">API Verification</strong> — independently confirm API calls succeeded</li>
+            <li>✓ <strong class="text-gray-200">Screenshot Verification</strong> — AI vision checks UI updates</li>
+            <li>✓ <strong class="text-gray-200">E2E Testing</strong> — custom assertions with veto mechanism</li>
+            <li>✓ <strong class="text-gray-200">Error Detection</strong> — "Error:" or "Exception"? Auto-fail</li>
+          </ul>
+          <p class="text-xs text-gray-600 mt-3">No more shipping bugs your agent missed</p>
+        </div>
+
+        <div class="card rounded-xl p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-lg">🧠</div>
+            <h3 class="font-bold text-lg">Memory Management</h3>
+          </div>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li>✓ <strong class="text-gray-200">Context Compression</strong> — 50 messages → 15 summaries. 70% token savings</li>
+            <li>✓ <strong class="text-gray-200">Instruction Anchors</strong> — pin goals to end of prompt, never lost</li>
+            <li>✓ <strong class="text-gray-200">Knowledge Base</strong> — agent learns solutions, searchable forever</li>
+            <li>✓ <strong class="text-gray-200">Priority & Expiration</strong> — anchors expire when relevant</li>
+          </ul>
+          <p class="text-xs text-gray-600 mt-3">Works in 100+ message conversations</p>
+        </div>
+
+        <div class="card rounded-xl p-7">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-yellow-500/20 flex items-center justify-center text-lg">🛡️</div>
+            <h3 class="font-bold text-lg">Security Firewall</h3>
+          </div>
+          <ul class="space-y-2 text-gray-400 text-sm">
+            <li>✓ <strong class="text-gray-200">Dangerous Command Blocking</strong> — rm -rf /, mkfs, DROP TABLE blocked</li>
+            <li>✓ <strong class="text-gray-200">Confirmation Required</strong> — sudo, chmod 777 need approval</li>
+            <li>✓ <strong class="text-gray-200">Sensitive Data Sanitization</strong> — phones, emails, API keys redacted</li>
+            <li>✓ <strong class="text-gray-200">Custom Rules</strong> — whitelist/blacklist support</li>
+          </ul>
+          <p class="text-xs text-gray-600 mt-3">Protect your system from your agent</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="py-20 px-6 border-t border-gray-900">
+    <div class="max-w-3xl mx-auto text-center">
+      <h2 class="text-3xl font-bold mb-6">Installs in 30 Seconds</h2>
+      <p class="text-gray-400 mb-8">Works with any AI agent framework. No complex setup.</p>
+      <div class="cmd rounded-xl p-6 text-left space-y-3">
+        <div class="text-gray-500 text-sm"># 1. Install</div>
+        <div><span class="text-green-400">npm</span> <span class="text-gray-500">install</span> <span class="text-indigo-300">arp</span></div>
+        <div class="text-gray-500 text-sm mt-4"># 2. Import & use</div>
+        <div class="text-gray-300"><span class="text-blue-400">import</span> { ARP } <span class="text-blue-400">from</span> <span class="text-green-300">'arp'</span>;</div>
+        <div class="text-gray-300 mt-2"><span class="text-purple-400">const</span> arp = <span class="text-blue-400">new</span> ARP({ notifications: { telegram: { botToken: <span class="text-green-300">'xxx'</span>, chatId: <span class="text-green-300">'xxx'</span> } } });</div>
+        <div class="text-gray-300 mt-2">arp.watch.<span class="text-yellow-300">recordToolCall</span>(<span class="text-green-300">'search'</span>, { query: <span class="text-green-300">'users'</span> }, result, duration);</div>
+        <div class="text-gray-300"><span class="text-purple-400">const</span> verified = <span class="text-blue-400">await</span> arp.<span class="text-yellow-300">verify</span>({ output: result }, { requiredFields: [<span class="text-green-300">'data'</span>] });</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="py-20 px-6 border-t border-gray-900">
+    <div class="max-w-4xl mx-auto">
+      <h2 class="text-3xl font-bold text-center mb-4">Simple, Honest Pricing</h2>
+      <p class="text-gray-400 text-center mb-12">Core package is MIT free. Pro tier unlocks advanced capabilities.</p>
+      <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+
+        <!-- Free -->
+        <div class="card rounded-xl p-8">
+          <div class="text-gray-400 font-medium mb-2">Free</div>
+          <div class="text-4xl font-bold mb-1">$0</div>
+          <div class="text-gray-500 text-sm mb-8">Open source, forever</div>
+          <ul class="space-y-3 text-sm text-gray-300 mb-8">
+            <li>✓ <strong>Core monitoring</strong> — loop, timeout, empty response detection</li>
+            <li>✓ <strong>Output verification</strong> — schema validation, API verification</li>
+            <li>✓ <strong>Memory management</strong> — context compression, knowledge base</li>
+            <li>✓ <strong>Security firewall</strong> — dangerous command blocking, sanitization</li>
+            <li>✓ <strong>MIT License</strong> — use in commercial projects</li>
+          </ul>
+          <div class="cmd rounded-lg px-4 py-2.5 text-sm text-center">
+            <code class="text-indigo-300">npm install arp</code>
+          </div>
+        </div>
+
+        <!-- Pro -->
+        <div id="pro" class="pro-card rounded-xl p-8 glow relative">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span class="badge px-3 py-1 rounded-full text-xs font-semibold text-white">Most Popular</span>
+          </div>
+          <div class="text-indigo-300 font-medium mb-2">Pro</div>
+          <div class="text-4xl font-bold mb-1">$29<span class="text-lg font-normal text-gray-400">/mo</span></div>
+          <div class="text-gray-500 text-sm mb-8">Or $249/yr (save $99)</div>
+          <ul class="space-y-3 text-sm text-gray-300 mb-8">
+            <li>✓ <strong>Everything in Free</strong></li>
+            <li>✓ <strong>Multi-Agent Dashboard</strong> — unified view of all agents</li>
+            <li>✓ <strong>TeamARP</strong> — team management for multiple agents</li>
+            <li>✓ <strong>Advanced Anomaly Detection</strong> — behavior drift, evasion patterns</li>
+            <li>✓ <strong>Screenshot Verification</strong> — AI vision for UI verification</li>
+            <li>✓ <strong>Priority Support</strong> — Discord channel, < 24h response</li>
+            <li>✓ <strong>Commercial License</strong> — explicit warranty for production use</li>
+          </ul>
+          <div class="space-y-2">
+            <a href="#" id="buyProMonthly" class="block w-full px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg font-semibold text-center hover:opacity-90 transition">
+              Buy Pro Monthly — $29/mo
+            </a>
+            <a href="#" id="buyProYearly" class="block w-full px-6 py-2.5 border border-indigo-500/30 rounded-lg font-medium text-center text-sm text-indigo-300 hover:bg-indigo-500/10 transition">
+              Buy Pro Yearly — $249/yr (save $99)
+            </a>
+            <p class="text-center text-xs text-gray-600 mt-2">Payment via Stripe · Cancel anytime</p>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="text-center mt-8 text-gray-600 text-sm">
+        Need enterprise? <a href="mailto:j02110910@gmail.com" class="text-indigo-400 hover:underline">Contact us</a> for custom pricing.
+      </div>
+    </div>
+  </section>
+
+  <!-- GitHub Sponsor -->
+  <section class="py-20 px-6 border-t border-gray-900">
+    <div class="max-w-2xl mx-auto text-center">
+      <h2 class="text-2xl font-bold mb-4">Support the Project</h2>
+      <p class="text-gray-400 mb-6">If ARP saves you time and money, consider sponsoring on GitHub. Even $3/mo helps keep development going.</p>
+      <a href="https://github.com/sponsors/j02110910-dev" class="inline-flex items-center gap-2 px-6 py-3 border border-gray-700 rounded-lg hover:bg-gray-900 transition">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        Sponsor on GitHub
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-900 py-12 px-6">
+    <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-600">
+      <div>ARP © 2026 · MIT License · Built with reliability in mind</div>
+      <div class="flex gap-6">
+        <a href="https://github.com/j02110910-dev/arp" class="hover:text-gray-400 transition">GitHub</a>
+        <a href="mailto:j02110910@gmail.com" class="hover:text-gray-400 transition">Contact</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyInstall() {
+      navigator.clipboard.writeText('npm install arp');
+      document.body.querySelector('.cmd .text-xs').textContent = 'copied!';
+      setTimeout(() => {
+        const btn = document.body.querySelector('.cmd .text-xs');
+        if (btn) btn.textContent = 'copy';
+      }, 2000);
+    }
+    // Stripe payment links (placeholder — replace with real Stripe payment links)
+    document.getElementById('buyProMonthly').href = 'https://buy.stripe.com/YOUR_STRIPE_MONTHLY_LINK';
+    document.getElementById('buyProYearly').href = 'https://buy.stripe.com/YOUR_STRIPE_YEARLY_LINK';
+  </script>
+</body>
+</html>
