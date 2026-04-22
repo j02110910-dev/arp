@@ -45,7 +45,7 @@
     <div class="max-w-4xl mx-auto text-center">
       <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-sm mb-8">
         <span class="w-2 h-2 rounded-full bg-green-400 pulse"></span>
-        Now in Public Beta — npm install arp
+        Now in Public Beta — npm install arp-agent
       </div>
       <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
         Stop Your AI Agents<br>
@@ -58,7 +58,7 @@
       <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8">
         <div class="cmd rounded-lg px-5 py-3 text-left inline-flex items-center gap-3">
           <span class="text-green-400 text-sm">$</span>
-          <code class="text-indigo-300">npm install arp</code>
+          <code class="text-indigo-300">npm install arp-agent</code>
           <button onclick="copyInstall()" class="text-gray-500 hover:text-white text-xs transition">copy</button>
         </div>
         <a href="#pricing" class="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg font-semibold hover:opacity-90 transition text-center">
@@ -205,7 +205,7 @@
             <li>✓ <strong>MIT License</strong> — use in commercial projects</li>
           </ul>
           <div class="cmd rounded-lg px-4 py-2.5 text-sm text-center">
-            <code class="text-indigo-300">npm install arp</code>
+            <code class="text-indigo-300">npm install arp-agent</code>
           </div>
         </div>
 
@@ -270,7 +270,7 @@
 
   <script>
     function copyInstall() {
-      navigator.clipboard.writeText('npm install arp');
+      navigator.clipboard.writeText('npm install arp-agent');
       document.body.querySelector('.cmd .text-xs').textContent = 'copied!';
       setTimeout(() => {
         const btn = document.body.querySelector('.cmd .text-xs');
