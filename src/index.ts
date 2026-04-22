@@ -114,13 +114,19 @@ export type {
   RiskLevel,
 } from '../plugins/permission-sentinel/src/types';
 
-// ─── Main ARP Class ────────────────────────────────────────
+// Note: OpenClawMonitor types are optional - gracefully skip if unavailable
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _openclawTypes: any = null;
+void _openclawTypes;
+
+// ─── Imports ───────────────────────────────────────────────
 
 import { SilentWatchMonitor } from '../plugins/silent-watch/src';
 import { OutputVerifier } from '../plugins/output-verifier/src';
 import { CognitiveGovernor } from '../plugins/cognitive-governor/src';
 import { PermissionSentinel } from '../plugins/permission-sentinel/src';
-
+import { createLogger } from './utils/logger';
+const logger = createLogger('arp');
 
 import type { AgentClaim, VerificationResult } from '../plugins/output-verifier/src/types';
 import type { ConversationMessage, CompressedContext, Anchor } from '../plugins/cognitive-governor/src/types';
@@ -353,6 +359,7 @@ export interface AgentStatus {
 export class TeamARP {
   private agents: Map<string, AgentStatus> = new Map();
   private dashboardServer: ReturnType<typeof import('http').createServer> | null = null;
+  readonly createdAt = new Date();
 
   /** Add an agent to the team */
   addAgent(name: string, config?: ARPConfig): ARP {
@@ -409,9 +416,21 @@ export class TeamARP {
   async dashboard(port = 3000): Promise<void> {
     const http = await import('http');
 
+    // Graceful shutdown handler
+    const shutdown = (signal: string) => {
+      logger.info(`Received ${signal}, shutting down gracefully`);
+      this.stop();
+      process.exit(0);
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+
     this.dashboardServer = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json');
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      const allowedOrigin = process.env.DASHBOARD_ALLOWED_ORIGIN || 'localhost';
+      res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
       const url = new URL(req.url || '/', `http://localhost:${port}`);
 
@@ -427,13 +446,43 @@ export class TeamARP {
       }
 
       if (url.pathname === '/api/alerts') {
-        const limit = parseInt(url.searchParams.get('limit') || '20', 10);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 1000);
         res.end(JSON.stringify({ alerts: this.getAllAlerts(limit) }));
         return;
       }
 
       if (url.pathname === '/api/stats') {
         res.end(JSON.stringify(this.getAllStats()));
+        return;
+      }
+
+      if (url.pathname === '/health') {
+        const uptimeSeconds = (Date.now() - this.createdAt.getTime()) / 1000;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          uptime: uptimeSeconds,
+          agents: this.agents.size,
+          version: '0.1.0',
+        }));
+        return;
+      }
+
+      if (url.pathname === '/metrics') {
+        const uptimeSeconds = (Date.now() - this.createdAt.getTime()) / 1000;
+        const allAlerts = this.getAllAlerts(1000);
+        res.setHeader('Content-Type', 'text/plain');
+        res.end(`# HELP arp_agents_total Number of agents
+# TYPE arp_agents_total gauge
+arp_agents_total ${this.agents.size}
+# HELP arp_alerts_total Total alerts across all agents
+# TYPE arp_alerts_total counter
+arp_alerts_total ${allAlerts.length}
+# HELP arp_uptime_seconds TeamARP uptime in seconds
+# TYPE arp_uptime_seconds gauge
+arp_uptime_seconds ${uptimeSeconds.toFixed(1)}
+`);
         return;
       }
 
@@ -444,15 +493,14 @@ export class TeamARP {
           'GET /api/agents': 'List all agents with stats',
           'GET /api/alerts?limit=N': 'Get all alerts across agents',
           'GET /api/stats': 'Get stats for all agents',
+          'GET /health': 'Health check endpoint',
+          'GET /metrics': 'Prometheus metrics endpoint',
         },
       }));
     });
 
     this.dashboardServer.listen(port, () => {
-      console.log(`[TeamARP] Dashboard running at http://localhost:${port}`);
-      console.log(`  GET /api/agents`);
-      console.log(`  GET /api/alerts`);
-      console.log(`  GET /api/stats`);
+      logger.info('Dashboard server started', { port, endpoint: 'http://localhost:' + port });
     });
   }
 

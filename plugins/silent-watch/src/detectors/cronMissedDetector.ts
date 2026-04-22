@@ -73,7 +73,7 @@ export class CronMissedDetector implements Detector {
           jobName: event.metadata?.jobName,
           jobId: event.metadata?.jobId,
           expectedTime: event.metadata?.expectedTime,
-          timestamp: event.timestamp.toISOString(),
+          timestamp: event.timestamp?.toISOString(),
         },
         suggestedFix: [
           '后台定时任务未按预期触发',

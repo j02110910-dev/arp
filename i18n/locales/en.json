@@ -1,0 +1,33 @@
+{
+  "alert": {
+    "loop_detected": "Loop detected in agent communication",
+    "timeout": "Operation timed out",
+    "empty_response": "Received empty response",
+    "anomaly": "Anomaly detected in system behavior",
+    "cron_missed": "Scheduled job missed its execution window"
+  },
+  "verification": {
+    "passed": "Verification passed",
+    "failed": "Verification failed",
+    "skipped": "Verification skipped"
+  },
+  "guard": {
+    "allowed": "Operation allowed",
+    "blocked": "Operation blocked",
+    "requires_confirmation": "Operation requires confirmation"
+  },
+  "compression": {
+    "context_compressed": "Context compressed from {original} to {compressed} tokens",
+    "anchor_added": "Anchor added: {anchor}"
+  },
+  "dashboard": {
+    "agent_count": "{count} agents online",
+    "alert_summary": "{critical} critical, {warning} warning, {info} info",
+    "health_status": "System health: {status}"
+  },
+  "error": {
+    "load_failed": "Failed to load {resource}",
+    "save_failed": "Failed to save {resource}",
+    "config_invalid": "Invalid configuration: {reason}"
+  }
+}

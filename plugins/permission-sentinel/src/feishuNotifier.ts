@@ -3,6 +3,8 @@
  * Sends alerts to Feishu/Lark via Incoming Webhook
  */
 
+import { logger } from './logger';
+
 export class FeishuNotifier {
   private webhookUrl: string;
   private enabled: boolean;
@@ -48,7 +50,7 @@ export class FeishuNotifier {
         }),
       });
     } catch (err) {
-      console.error('[FeishuNotifier] Failed to send:', err);
+      logger.error('Failed to send Feishu notification', { error: String(err), alertType: alert.type });
     }
   }
 }

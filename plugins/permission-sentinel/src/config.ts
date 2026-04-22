@@ -23,7 +23,10 @@ export function loadConfig(overrides?: Partial<PermissionSentinelConfig>): Permi
   }
 
   if (overrides) {
-    Object.assign(config, overrides);
+    const filteredOverrides = Object.fromEntries(
+      Object.entries(overrides).filter(([, value]) => value !== undefined)
+    );
+    Object.assign(config, filteredOverrides);
   }
 
   return config;

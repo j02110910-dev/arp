@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  arp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source directories for live development
+      - ./src:/app/src:ro
+      - ./plugins:/app/plugins:ro
+      - ./dist:/app/dist:rw
+    environment:
+      - NODE_ENV=development
+    command: npm run build && npm start
+    healthcheck:
+      test: ["CMD", "node", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

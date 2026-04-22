@@ -6,6 +6,7 @@
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
@@ -17,9 +18,10 @@
       "@arp/silent-watch": ["plugins/silent-watch/src"],
       "@arp/output-verifier": ["plugins/output-verifier/src"],
       "@arp/cognitive-governor": ["plugins/cognitive-governor/src"],
-      "@arp/permission-sentinel": ["plugins/permission-sentinel/src"]
+      "@arp/permission-sentinel": ["plugins/permission-sentinel/src"],
+      "@arp/openclaw-monitor": ["plugins/openclaw-monitor/src"]
     }
   },
-  "include": ["src/**/*", "plugins/*/src/**/*"],
+  "include": ["src/**/*", "plugins/*/src/**/*", "env.d.ts"],
   "exclude": ["node_modules", "dist", "**/tests/**", "**/examples/**"]
 }

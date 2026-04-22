@@ -142,8 +142,8 @@ monitor.onAlert(async (alert) => {
 | 套餐 | 价格 | 内容 |
 |------|------|------|
 | Free | $0 | 每月 20 次 Schema 验证 |
-| Pro | $8/月 | 无限验证 + API 验证 + 历史记录 |
-| Enterprise | $30/月 | E2E 测试 + 截图验证 + 团队协作 |
+| Pro | $50/月 | 无限验证 + API 验证 + 历史记录 |
+| Enterprise | $50/月 | E2E 测试 + 截图验证 + 团队协作 |
 
 ---
 

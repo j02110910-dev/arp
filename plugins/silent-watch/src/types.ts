@@ -74,10 +74,12 @@ export interface ResponseEvent {
   responseLength?: number;
 }
 
+// Cron-specific event type (extends base MonitoringEvent)
 export interface CronEvent {
-  timestamp: Date;
-  jobName: string;
+  timestamp?: Date;
+  type: 'cron_trigger' | 'cron_miss';
   jobId: string;
+  jobName?: string;
   expectedRunTime?: Date;
 }
 

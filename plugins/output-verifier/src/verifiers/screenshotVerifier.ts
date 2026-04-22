@@ -108,8 +108,8 @@ export class ScreenshotVerifier implements Verifier {
     // Check tool calls for screenshot paths
     if (claim.toolCalls) {
       for (const tc of claim.toolCalls) {
-        const path = tc.args?.screenshot as string || tc.args?.image as string || tc.args?.path as string;
-        if (path) return path;
+        const screenshotPath = tc.args?.screenshot as string || tc.args?.image as string || tc.args?.path as string;
+        if (screenshotPath) return screenshotPath;
         // Check result for screenshot paths
         if (tc.result && typeof tc.result === 'object') {
           const resultObj = tc.result as Record<string, unknown>;
@@ -190,10 +190,14 @@ Agent 的声明：${claim.description}
     }
 
     const data = await response.json() as {
-      choices: Array<{ message: { content: string } }>;
+      choices: Array<{ message?: { content?: string } }>;
     };
 
-    return data.choices[0]?.message?.content || '';
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) {
+      throw new Error('Vision API returned empty response');
+    }
+    return content;
   }
 
   private parseAnalysis(

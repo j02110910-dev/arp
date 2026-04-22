@@ -1,0 +1,43 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arp-ingress
+  namespace: arp-system
+  labels:
+    app.kubernetes.io/name: arp
+    app.kubernetes.io/component: ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - arp.internal
+      secretName: arp-tls-cert
+  rules:
+    - host: arp.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: arp-dashboard
+                port:
+                  name: http
+---
+# NOTE: Create the TLS secret manually or via cert-manager:
+# kubectl create secret tls arp-tls-cert --cert=path/to/cert.pem --key=path/to/key.pem
+# Placeholder cert below for reference only (not functional)
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: arp-tls-cert
+#   namespace: arp-system
+# type: kubernetes.io/tls
+# data:
+#   tls.crt: BASE64_ENCODED_CERT
+#   tls.key: BASE64_ENCODED_KEY

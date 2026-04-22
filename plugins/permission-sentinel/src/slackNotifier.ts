@@ -3,6 +3,8 @@
  * Sends alerts to Slack via Incoming Webhook
  */
 
+import { logger } from './logger';
+
 export class SlackNotifier {
   private webhookUrl: string;
   private enabled: boolean;
@@ -33,7 +35,7 @@ export class SlackNotifier {
         }),
       });
     } catch (err) {
-      console.error('[SlackNotifier] Failed to send:', err);
+      logger.error('Failed to send Slack notification', { error: String(err), alertType: alert.type });
     }
   }
 }

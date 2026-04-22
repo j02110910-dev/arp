@@ -132,6 +132,8 @@ export interface DataVerifierConfig extends VerifierConfig {
   timeoutMs?: number;
   /** Expected status codes */
   expectedStatusCodes?: number[];
+  /** Custom suggested fix message for failed verifications */
+  suggestedFixMessage?: string;
 }
 
 /** Screenshot verification specific config */

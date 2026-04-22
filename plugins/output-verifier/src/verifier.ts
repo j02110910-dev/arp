@@ -14,7 +14,8 @@ import {
   VerifierType,
   VerificationStatus,
 } from './types';
-import { SchemaVerifier, ApiVerifier, ScreenshotVerifier, E2eVerifier } from './verifiers';
+import { SchemaVerifier, ApiVerifier, DataVerifier, ScreenshotVerifier, E2eVerifier } from './verifiers';
+import { logger } from './logger';
 
 export class OutputVerifier {
   private config: OutputVerifierConfig;
@@ -35,7 +36,7 @@ export class OutputVerifier {
       this.verifiers.set('api', new ApiVerifier(this.config.verifiers.api));
     }
     if (this.config.verifiers.data?.enabled) {
-      this.verifiers.set('data', new ApiVerifier(this.config.verifiers.data));
+      this.verifiers.set('data', new DataVerifier(this.config.verifiers.data));
     }
     if (this.config.verifiers.screenshot?.enabled) {
       this.verifiers.set('screenshot', new ScreenshotVerifier(this.config.verifiers.screenshot));
@@ -70,22 +71,20 @@ export class OutputVerifier {
             durationMs: Date.now() - startTime,
           });
         }
+      } else {
+        // Record each skipped verifier with its actual type
+        results.push({
+          id: uuidv4(),
+          claimId: claim.id,
+          verifierType: type,
+          status: 'skipped',
+          score: 100,
+          message: `Verifier "${type}" skipped: claim does not meet requirements`,
+          details: [],
+          timestamp: new Date(),
+          durationMs: Date.now() - startTime,
+        });
       }
-    }
-
-    // If no verifiers ran, create a skipped report
-    if (results.length === 0) {
-      results.push({
-        id: uuidv4(),
-        claimId: claim.id,
-        verifierType: 'schema',
-        status: 'skipped',
-        score: 100,
-        message: 'No applicable verifiers found for this claim',
-        details: [],
-        timestamp: new Date(),
-        durationMs: Date.now() - startTime,
-      });
     }
 
     // Aggregate results
@@ -93,7 +92,7 @@ export class OutputVerifier {
 
     // Save to history
     this.reportHistory.push(report);
-    this.saveReportHistory();
+    await this.saveReportHistory();
 
     // Call callback if set
     if (this.config.onVerification) {
@@ -101,10 +100,9 @@ export class OutputVerifier {
         const bestResult = results.reduce((best, r) => r.score > best.score ? r : best, results[0]);
         this.config.onVerification(bestResult);
       } catch (error) {
-        console.error('[OutputVerifier] Callback error:', error);
+        logger.error('Callback error', { error: error instanceof Error ? error.message : String(error) });
       }
     }
-
     return report;
   }
 
@@ -245,7 +243,9 @@ export class OutputVerifier {
    */
   clearHistory(): void {
     this.reportHistory = [];
-    this.saveReportHistory();
+    this.saveReportHistory().catch((error) => {
+      logger.error('Failed to save report history', { error: error instanceof Error ? error.message : String(error) });
+    });
   }
 
   private buildReport(
@@ -253,16 +253,19 @@ export class OutputVerifier {
     results: VerificationResult[],
     startTime: number
   ): VerificationReport {
-    // Calculate overall status
-    const statuses = results.map(r => r.status);
+    // Calculate overall status - ignore 'skipped' statuses
+    const activeStatuses = results.filter(r => r.status !== 'skipped').map(r => r.status);
     let overallStatus: VerificationStatus;
-    if (statuses.every(s => s === 'passed')) {
+    if (activeStatuses.length === 0) {
+      // All verifiers skipped
+      overallStatus = 'skipped';
+    } else if (activeStatuses.every(s => s === 'passed')) {
       overallStatus = 'passed';
-    } else if (statuses.some(s => s === 'failed')) {
+    } else if (activeStatuses.some(s => s === 'failed')) {
       overallStatus = 'failed';
-    } else if (statuses.some(s => s === 'partial')) {
+    } else if (activeStatuses.some(s => s === 'partial')) {
       overallStatus = 'partial';
-    } else if (statuses.some(s => s === 'error')) {
+    } else if (activeStatuses.some(s => s === 'error')) {
       overallStatus = 'error';
     } else {
       overallStatus = 'skipped';
@@ -312,25 +315,25 @@ export class OutputVerifier {
             timestamp: new Date(vr.timestamp),
           })),
         }));
-        console.log(`[OutputVerifier] Loaded ${this.reportHistory.length} past reports`);
+        logger.info('Loaded report history', { reportCount: this.reportHistory.length });
       }
     } catch (error) {
-      console.error('[OutputVerifier] Failed to load report history:', error);
+      logger.error('Failed to load report history', { error: error instanceof Error ? error.message : String(error) });
       this.reportHistory = [];
     }
   }
 
-  private saveReportHistory(): void {
+  private async saveReportHistory(): Promise<void> {
     if (!this.config.reportPath) return;
 
     try {
       const toSave = this.reportHistory.slice(-(this.config.maxReports || 100));
-      fs.writeFileSync(
+      await fs.promises.writeFile(
         this.config.reportPath,
         JSON.stringify(toSave, null, 2)
       );
     } catch (error) {
-      console.error('[OutputVerifier] Failed to save report history:', error);
+      logger.error('Failed to save report history', { error: error instanceof Error ? error.message : String(error) });
     }
   }
 
@@ -338,7 +341,9 @@ export class OutputVerifier {
    * Stop the verifier and save state
    */
   stop(): void {
-    this.saveReportHistory();
-    console.log('[OutputVerifier] Verifier stopped');
+    this.saveReportHistory().catch((error) => {
+      logger.error('Failed to save report history', { error: error instanceof Error ? error.message : String(error) });
+    });
+    logger.info('Verifier stopped');
   }
 }

@@ -5,7 +5,10 @@
  */
 
 import { SilentWatchMonitor, loadConfig } from './index';
+import { createLogger } from './logger';
 import { createServer } from 'http';
+
+const logger = createLogger({ plugin: 'silent-watch', detector: 'cli' });
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -129,31 +132,32 @@ async function cmdRecord(monitor: SilentWatchMonitor, options: Record<string, st
   switch (type) {
     case 'tool_call':
       if (!tool) {
-        console.error('Error: --tool is required for tool_call events');
+        logger.error('Tool name is required for tool_call events', { type });
         process.exit(1);
       }
       monitor.recordToolCall(tool, undefined, undefined, duration);
-      console.log(`Recorded tool_call: ${tool}`);
+      logger.info('Tool call recorded', { tool, duration });
       break;
     case 'response':
     case 'normal':
       monitor.recordResponse(content || options.text || 'NO_REPLY');
-      console.log(`Recorded response: ${content.substring(0, 50)}`);
+      logger.info('Response recorded', { contentPreview: content.substring(0, 50) });
       break;
     case 'cron_trigger':
       monitor.recordCronTrigger(tool || 'unnamed', options.jobId || 'default');
-      console.log(`Recorded cron trigger: ${tool}`);
+      logger.info('Cron trigger recorded', { jobName: tool, jobId: options.jobId });
       break;
     default:
+      // Type from CLI is a user-provided string - pass through directly
       monitor.recordEvent({
         timestamp: new Date(),
-        type: type as any,
+        type,
         tool,
         duration,
         content,
         metadata: options,
       });
-      console.log(`Recorded event: ${type}`);
+      logger.info('Event recorded', { type });
   }
 }
 
@@ -300,16 +304,20 @@ async function startHttpServer(monitor: SilentWatchMonitor, port: number): Promi
   const cleanup = () => {
     if (!serverClosed) {
       serverClosed = true;
-      console.log('\n\nShutting down server...');
+      logger.info('Server shutdown initiated');
       server?.close();
     }
   };
 
   server.listen(port, () => {
-    console.log('\n🌐 SilentWatch HTTP API Server running on http://localhost:' + port);
-    console.log('   Health: http://localhost:' + port + '/health');
-    console.log('   Events: http://localhost:' + port + '/events');
-    console.log('   Record: POST http://localhost:' + port + '/record\n');
+    logger.info('HTTP server started', {
+      port,
+      endpoints: {
+        health: 'http://localhost:' + port + '/health',
+        events: 'http://localhost:' + port + '/events',
+        record: 'POST http://localhost:' + port + '/record'
+      }
+    });
   });
 
   process.on('SIGINT', cleanup);
@@ -381,11 +389,11 @@ async function main(): Promise<void> {
 
       // 验证端口
       if (isNaN(port)) {
-        console.error(`Invalid port: ${port}. Port must be a number.`);
+        logger.error('Invalid port: must be a number', { port, providedValue: optPort });
         process.exit(1);
       }
       if (port < 1 || port > 65535) {
-        console.error(`Invalid port: ${port}. Port must be between 1 and 65535.`);
+        logger.error('Invalid port: must be between 1 and 65535', { port });
         process.exit(1);
       }
 
@@ -420,6 +428,6 @@ async function main(): Promise<void> {
 }
 
 main().catch(error => {
-  console.error('Error:', error);
+  logger.error('Application error', { error: String(error) });
   process.exit(1);
 });

@@ -1,0 +1,41 @@
+version: '3.8'
+
+# Production docker-compose configuration for ARP
+# Production-specific settings are commented and explained below
+
+services:
+  arp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Production resource limits to prevent resource exhaustion
+    deploy:
+      resources:
+        limits:
+          memory: 512M  # Prevent container from using more than 512MB RAM
+          cpus: '0.25'  # Limit to 250m (25% of a CPU core)
+        reservations:
+          memory: 256M  # Reserve minimum memory for stable performance
+    # Production environment - disables debug features and enables optimizations
+    environment:
+      - NODE_ENV=production
+    # Restart policy: always restart unless explicitly stopped by user
+    restart: unless-stopped
+    # Production logging with rotation to prevent disk exhaustion
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'  # Rotate log files when they reach 10MB
+        max-file: '3'    # Keep only 3 log files (total max 30MB)
+    # Health check using TCP port 3000 for container orchestration
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s     # Check health every 30 seconds
+      timeout: 10s      # Fail if check takes more than 10 seconds
+      retries: 3        # Mark container unhealthy after 3 consecutive failures
+      start_period: 40s # Wait 40 seconds before first health check
+    # No debug ports exposed in production for security
+    # Ports are commented out - remove the '#' to enable if needed for debugging
+    # ports:
+    #   - "3000:3000"
+    command: npm run build && npm start

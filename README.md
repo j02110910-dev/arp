@@ -1,5 +1,9 @@
 # ARP - Agent Reliability Platform
 
+[![npm version](https://img.shields.io/npm/v/arp.svg)](https://npm.npmjs.com/package/arp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org/)
+
 All-in-one reliability platform for AI Agents. Monitoring, verification, memory management, and security — in a single npm package.
 
 ```bash
@@ -8,9 +12,22 @@ npm install arp
 
 ---
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Install](#install)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Plugin System](#plugin-system)
+- [Tests](#tests)
+- [License](#license)
+
+---
+
 ## Features
 
-### 🔍 Smart Monitoring
+### Smart Monitoring
 
 Detect silent failures in real-time while your agent executes tasks:
 
@@ -22,7 +39,7 @@ Detect silent failures in real-time while your agent executes tasks:
 
 Alert channels: Console, WeChat (Server酱), Telegram, Slack, Feishu, Email.
 
-### ✅ Output Verification
+### Output Verification
 
 Your agent says "done" — but is it really?
 
@@ -32,7 +49,7 @@ Your agent says "done" — but is it really?
 - **E2E Testing** — Write custom test cases with assertions. Built-in veto mechanism for critical checks.
 - **Error Detection** — Output contains "Error:" or "Exception"? Auto-fail, no exceptions.
 
-### 🧠 Memory Management
+### Memory Management
 
 Keep your agent smart during long conversations:
 
@@ -40,7 +57,7 @@ Keep your agent smart during long conversations:
 - **Instruction Anchors** — Pin critical task goals to the end of your prompt. Never lost, even in 100+ message conversations. Supports priority and expiration.
 - **Knowledge Base** — Agent solved a problem? Auto-store the solution. Search and reuse later with tags and relevance scoring.
 
-### 🛡️ Security Firewall
+### Security Firewall
 
 Protect your system from dangerous agent actions:
 
@@ -49,13 +66,70 @@ Protect your system from dangerous agent actions:
 - **Sensitive Data Sanitization** — Phone numbers, emails, API keys, passwords, credit cards, IP addresses — auto-redacted in logs.
 - **Custom Rules** — Add your own security rules with whitelist/blacklist support.
 
-### 👥 Multi-Agent Management
+### Multi-Agent Management
 
 Running multiple agents? Manage them all with TeamARP:
 
 - Add unlimited agents, each with independent configuration.
-- Unified dashboard at `http://localhost:3000/api/agents`.
+- Unified dashboard at `http://localhost:3000/api/agents`
 - Aggregated alerts across all agents.
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         ARP Core                                 │
+│                   (src/index.ts)                                │
+│                                                                  │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────────┐ │
+│  │   ARP.watch │  │  arp.verify │  │  arp.compress/anchor    │ │
+│  │  (monitor)  │  │  (verifier) │  │  (cognitive-governor)   │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────────┘ │
+│                                                                  │
+│  ┌─────────────────────┐  ┌──────────────────────────────────┐  │
+│  │    arp.guard       │  │         TeamARP                  │  │
+│  │ (permission-sentinel)│  │   (multi-agent dashboard)       │  │
+│  └─────────────────────┘  └──────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌─────────────────┐   ┌─────────────────┐
+│ silent-watch  │    │ permission-     │   │ cognitive-      │
+│               │    │ sentinel        │   │ governor         │
+│ - LoopDetector│    │                 │   │                 │
+│ - TimeoutDet. │    │ - CommandCheck  │   │ - ContextComp.   │
+│ - EmptyRespD. │    │ - Sanitization  │   │ - Anchors        │
+│ - CronMissD.  │    │ - RiskAnalysis  │   │ - KnowledgeBase  │
+│ - AnomalyDet.│    │                 │   │                 │
+└───────────────┘    └─────────────────┘   └─────────────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        ▼                     ▼                     ▼
+┌───────────────┐    ┌─────────────────┐   ┌─────────────────┐
+│ output-        │    │ agent-stress-    │   │   notifiers/    │
+│ verifier       │    │ tester           │   │   detectors     │
+│                │    │                  │   │                 │
+│ - SchemaVerify │    │ - DriftDetector  │   │ - Console       │
+│ - ApiVerify    │    │ - LoadGenerator  │   │ - WeChat        │
+│ - ScreenshotV. │    │ - PerformanceAn. │   │ - Telegram      │
+│ - E2EVerify    │    │ - AdversarialGen │   │ - Email         │
+└───────────────┘    └─────────────────┘   └─────────────────┘
+```
+
+### Plugin System
+
+Each plugin is independently deployable and can be used standalone:
+
+| Plugin | Package | Standalone Import |
+|--------|---------|-------------------|
+| silent-watch | `arp/plugins/silent-watch` | `silent-watch` |
+| permission-sentinel | `arp/plugins/permission-sentinel` | `permission-sentinel` |
+| cognitive-governor | `arp/plugins/cognitive-governor` | `cognitive-governor` |
+| output-verifier | `arp/plugins/output-verifier` | `output-verifier` |
+| agent-stress-tester | `arp/plugins/agent-stress-tester` | `agent-stress-tester` |
 
 ---
 
@@ -143,6 +217,49 @@ team.dashboard(3000);        // http://localhost:3000/api/agents
 // Lifecycle
 arp.stop()
 ```
+
+---
+
+## Plugin System
+
+### Using Plugins Standalone
+
+Each plugin can be imported and used independently:
+
+```typescript
+// SilentWatch - Silent failure detection
+import { SilentWatchMonitor } from 'silent-watch';
+const monitor = new SilentWatchMonitor({ enabled: true });
+monitor.recordToolCall('tool', {}, null, 50000);
+
+// Permission Sentinel - Security firewall
+import { PermissionSentinel } from 'permission-sentinel';
+const guard = new PermissionSentinel();
+guard.checkCommand('sudo rm -rf /');
+
+// Cognitive Governor - Memory management
+import { CognitiveGovernor } from 'cognitive-governor';
+const gov = new CognitiveGovernor({ tokenLimit: 8000 });
+gov.compressContext(messages);
+
+// Output Verifier - Output verification
+import { OutputVerifier } from 'output-verifier';
+const verifier = new OutputVerifier();
+await verifier.verifyOutput({ id: 1 }, { requiredFields: ['id']});
+
+// Agent Stress Tester - Stress testing
+import { StressTester } from 'agent-stress-tester';
+const tester = new StressTester();
+const report = await tester.runStressTest(testCases);
+```
+
+### Full API Documentation
+
+See [docs/API.md](docs/API.md) for complete API reference including:
+- All interfaces and types
+- Configuration options
+- Error codes
+- Advanced usage examples
 
 ---
 

@@ -10,8 +10,10 @@
     "prepare": "npm run build"
   },
   "keywords": ["ai-agent", "memory", "context-compression", "knowledge-base", "mcp"],
+  "author": "ARP Team <team@arp.example.com>",
   "license": "MIT",
   "dependencies": {
+    "pino": "^9.6.0",
     "uuid": "^11.0.5"
   },
   "devDependencies": {

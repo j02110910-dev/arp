@@ -17,6 +17,19 @@ export class EmptyResponseDetector implements Detector {
       maxConsecutiveEmpty: config.maxConsecutiveEmpty || 3,
       contextSnapshotSize: config.contextSnapshotSize || 10,
     };
+    // Initialize recentResponses with the same snapshot size
+    this.recentResponses = [];
+  }
+
+  /**
+   * Track a response for consecutive empty response detection
+   */
+  private trackResponse(content: string, isEmpty: boolean, isNO_REPLY: boolean): void {
+    this.recentResponses.push({ content, isEmpty, isNO_REPLY });
+    const maxSize = (this.config.contextSnapshotSize || 10) * 2;
+    if (this.recentResponses.length > maxSize) {
+      this.recentResponses.shift();
+    }
   }
 
   check(events: MonitoringEvent[]): DetectorResult {
@@ -25,7 +38,7 @@ export class EmptyResponseDetector implements Detector {
       e.type === 'normal' || e.type === 'empty_response'
     );
 
-    const recentEvents = responseEvents.slice(-this.config.contextSnapshotSize!);
+    const recentEvents = responseEvents.slice(-(this.config.contextSnapshotSize || 10));
 
     // Track consecutive empty responses from the end
     let consecutiveEmpty = 0;
@@ -41,6 +54,8 @@ export class EmptyResponseDetector implements Detector {
       if (isEmptyResponse || isNO_REPLY) {
         if (isEmptyResponse) consecutiveEmpty++;
         if (isNO_REPLY) consecutiveNO_REPLY++;
+        // Track response for potential use in reset()
+        this.trackResponse(event.content || '', isEmptyResponse, isNO_REPLY);
       } else {
         // Found a meaningful response - stop counting
         break;
@@ -48,11 +63,12 @@ export class EmptyResponseDetector implements Detector {
     }
 
     // Trigger alert for consecutive empty responses
-    if (consecutiveEmpty >= this.config.maxConsecutiveEmpty!) {
+    if (consecutiveEmpty >= (this.config.maxConsecutiveEmpty || 3)) {
       let severity: 'low' | 'medium' | 'high' | 'critical';
-      if (consecutiveNO_REPLY >= this.config.maxConsecutiveEmpty! * 2) {
+      const maxEmpty = this.config.maxConsecutiveEmpty || 3;
+      if (consecutiveNO_REPLY >= maxEmpty * 2) {
         severity = 'critical';
-      } else if (consecutiveEmpty >= this.config.maxConsecutiveEmpty! * 1.5) {
+      } else if (consecutiveEmpty >= maxEmpty * 1.5) {
         severity = 'high';
       } else {
         severity = 'medium';

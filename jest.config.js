@@ -5,4 +5,11 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   verbose: true,
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    'plugins/*/src/**/*.ts',
+    '!plugins/*/dist/**',
+    '!plugins/*/node_modules/**',
+    '!src/**/*.d.ts',
+  ],
 };

@@ -19,14 +19,16 @@ export function getDefaultConfig(): CognitiveGovernorConfig {
 export function loadConfig(overrides?: Partial<CognitiveGovernorConfig>): CognitiveGovernorConfig {
   const config = getDefaultConfig();
 
-  if (process.env.COGNITIVE_GOVERNOR_ENABLED === 'false') {
+  if (['false', '0', 'no', 'off'].includes(process.env.COGNITIVE_GOVERNOR_ENABLED ?? '')) {
     config.enabled = false;
   }
   if (process.env.COGNITIVE_GOVERNOR_TOKEN_LIMIT) {
-    config.tokenLimit = parseInt(process.env.COGNITIVE_GOVERNOR_TOKEN_LIMIT, 10);
+    const parsed = parseInt(process.env.COGNITIVE_GOVERNOR_TOKEN_LIMIT, 10);
+    config.tokenLimit = (isNaN(parsed) || parsed <= 0) ? 8000 : parsed;
   }
   if (process.env.COGNITIVE_GOVERNOR_THRESHOLD) {
-    config.compressionThreshold = parseFloat(process.env.COGNITIVE_GOVERNOR_THRESHOLD);
+    const thresholdParsed = parseFloat(process.env.COGNITIVE_GOVERNOR_THRESHOLD);
+    config.compressionThreshold = isNaN(thresholdParsed) ? 0.7 : thresholdParsed;
   }
   if (process.env.COGNITIVE_GOVERNOR_STRATEGY) {
     config.compressionStrategy = process.env.COGNITIVE_GOVERNOR_STRATEGY as CognitiveGovernorConfig['compressionStrategy'];

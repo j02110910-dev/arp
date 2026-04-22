@@ -1,0 +1,33 @@
+{
+  "alert": {
+    "loop_detected": "エージェント通信でループが検出されました",
+    "timeout": "操作がタイムアウトしました",
+    "empty_response": "空の応答を受け取りました",
+    "anomaly": "システム動作で異常が検出されました",
+    "cron_missed": "スケジュールされたジョブが実行ウィンドウを逃しました"
+  },
+  "verification": {
+    "passed": "検証に合格しました",
+    "failed": "検証に失敗しました",
+    "skipped": "検証がスキップされました"
+  },
+  "guard": {
+    "allowed": "操作が許可されました",
+    "blocked": "操作がブロックされました",
+    "requires_confirmation": "操作には確認が必要です"
+  },
+  "compression": {
+    "context_compressed": "コンテキストが {original} トークンから {compressed} トークンに圧縮されました",
+    "anchor_added": "アンカーが追加されました：{anchor}"
+  },
+  "dashboard": {
+    "agent_count": "{count} 個の代理人がオンライン",
+    "alert_summary": "{critical} 件の重大、{warning} 件の警告、{info} 件の報告",
+    "health_status": "システム健康状態：{status}"
+  },
+  "error": {
+    "load_failed": "{resource} の読み込みに失敗しました",
+    "save_failed": "{resource} の保存に失敗しました",
+    "config_invalid": "設定が無効です：{reason}"
+  }
+}

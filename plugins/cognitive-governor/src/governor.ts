@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import {
   CognitiveGovernorConfig,
@@ -14,12 +15,18 @@ import {
   ContextHealth,
   KnowledgeQuery,
 } from './types';
+import { logger } from './logger';
+
+// Re-export logger for use in other modules that import governor
+export { logger };
 
 export class CognitiveGovernor {
   private config: CognitiveGovernorConfig;
   private compressedHistory: CompressedContext[] = [];
   private anchors: Map<string, Anchor> = new Map();
   private knowledgeBase: Map<string, KnowledgeEntry> = new Map();
+  private cacheHits = 0;
+  private cacheQueries = 0;
 
   constructor(config: CognitiveGovernorConfig) {
     this.config = config;
@@ -40,6 +47,9 @@ export class CognitiveGovernor {
     const totalTokens = this.countTokens(messages);
     const limit = this.config.tokenLimit;
     const threshold = limit * this.config.compressionThreshold;
+
+    // Log token usage metrics
+    logger.tokenUsage(totalTokens, { limit });
 
     // No compression needed
     if (totalTokens <= threshold) {
@@ -136,11 +146,36 @@ export class CognitiveGovernor {
   }
 
   /**
-   * Truncate: keep only recent messages
+   * Truncate: keep only recent messages that fit within token limit
+   * Uses actual token counting instead of fixed divisor estimation
    */
   private truncateStrategy(messages: ConversationMessage[]): ConversationMessage[] {
-    const keepCount = Math.max(10, Math.floor(this.config.tokenLimit / 200));
-    return messages.slice(-keepCount);
+    if (messages.length === 0) return [];
+    if (messages.length === 1) return messages;
+
+    const limit = Math.floor(this.config.tokenLimit * 0.9); // Leave 10% buffer
+    const result: ConversationMessage[] = [];
+
+    // Accumulate messages from most recent backwards until hitting token limit
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msgTokens = this.countTokens([messages[i]]);
+      const currentTotal = this.countTokens(result);
+
+      if (currentTotal + msgTokens > limit && result.length > 0) {
+        break;
+      }
+      result.unshift(messages[i]);
+    }
+
+    // Ensure at least one message is kept
+    if (result.length === 0 && messages.length > 0) {
+      result.push(messages[messages.length - 1]);
+    }
+
+    // Log truncation metrics
+    logger.truncationCount({ strategy: 'truncate', before: messages.length, after: result.length });
+
+    return result;
   }
 
   /**
@@ -165,7 +200,7 @@ export class CognitiveGovernor {
   private buildMiddleSummary(messages: ConversationMessage[]): string {
     const topics = this.extractTopics(messages);
     const toolCalls = messages
-      .filter(m => m.role === 'assistant' && m.content.includes('tool'))
+      .filter(m => m.role === 'assistant' && this.hasToolCall(m.content))
       .map(m => m.content.substring(0, 100));
 
     let summary = '';
@@ -270,6 +305,7 @@ export class CognitiveGovernor {
    * Search knowledge base for relevant entries
    */
   searchKnowledge(query: KnowledgeQuery): KnowledgeEntry[] {
+    this.cacheQueries++;
     const results: KnowledgeEntry[] = [];
     const queryLower = query.text.toLowerCase();
     const queryTags = query.tags || [];
@@ -300,12 +336,25 @@ export class CognitiveGovernor {
       score += Math.min(entry.useCount / 10, 1) * 0.1;
 
       if (score >= minScore) {
-        results.push({ ...entry, relevanceScore: score });
+        results.push({
+          ...entry,
+          tags: [...entry.tags],
+          relevanceScore: score,
+        });
       }
     }
 
     results.sort((a, b) => b.relevanceScore - a.relevanceScore);
-    return results.slice(0, query.limit || 5);
+    const finalResults = results.slice(0, query.limit || 5);
+
+    // Track cache hits
+    if (finalResults.length > 0) {
+      this.cacheHits++;
+    }
+    const cacheHitRate = this.cacheQueries > 0 ? this.cacheHits / this.cacheQueries : 0;
+    logger.cacheHitRate(cacheHitRate);
+
+    return finalResults;
   }
 
   /**
@@ -396,6 +445,23 @@ export class CognitiveGovernor {
     return Object.entries(counts).map(([r, c]) => `${r}:${c}`).join(', ');
   }
 
+  /**
+   * Robustly detect if content contains a tool/function call structure
+   * Checks for:
+   * - tool_calls array/object pattern
+   * - function_call object pattern
+   * - JSON structure with name + arguments fields
+   */
+  private hasToolCall(content: string): boolean {
+    // Check for tool_calls array structure
+    if (/\"tool_calls\"\s*:/.test(content)) return true;
+    // Check for function_call object structure
+    if (/\"function_call\"\s*:/.test(content)) return true;
+    // Check for function call with name and arguments pattern
+    if (/\"name\"\s*:\s*\"[a-zA-Z_][a-zA-Z0-9_]*\"\s*,?\s*\"arguments\"\s*:/.test(content)) return true;
+    return false;
+  }
+
   private createEmptySummary(): CompressedContext {
     return {
       id: uuidv4(),
@@ -415,7 +481,7 @@ export class CognitiveGovernor {
         const data = JSON.parse(fs.readFileSync(this.config.persistencePath, 'utf-8'));
         if (data.anchors) {
           for (const a of data.anchors) {
-            this.anchors.set(a.id, { ...a, createdAt: new Date(a.createdAt) });
+            this.anchors.set(a.id, { ...a, createdAt: new Date(a.createdAt), expiresAt: a.expiresAt ? new Date(a.expiresAt) : undefined });
           }
         }
         if (data.knowledge) {
@@ -427,18 +493,22 @@ export class CognitiveGovernor {
           this.compressedHistory = data.compressedHistory.map((c: CompressedContext) => ({
             ...c,
             timestamp: new Date(c.timestamp),
+            timeRange: {
+              start: new Date(c.timeRange.start),
+              end: new Date(c.timeRange.end),
+            },
           }));
         }
       }
     } catch {
-      console.error('[CognitiveGovernor] Failed to load persisted data');
+      logger.error('[CognitiveGovernor] Failed to load persisted data');
     }
   }
 
   private savePersistedData(): void {
     if (!this.config.persistencePath) return;
     try {
-      const dir = require('path').dirname(this.config.persistencePath);
+      const dir = path.dirname(this.config.persistencePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(this.config.persistencePath, JSON.stringify({
         anchors: Array.from(this.anchors.values()),
@@ -446,7 +516,7 @@ export class CognitiveGovernor {
         compressedHistory: this.compressedHistory.slice(-50),
       }, null, 2));
     } catch {
-      console.error('[CognitiveGovernor] Failed to save persisted data');
+      logger.error('[CognitiveGovernor] Failed to save persisted data');
     }
   }
 

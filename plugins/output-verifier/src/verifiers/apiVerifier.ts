@@ -66,7 +66,18 @@ export class ApiVerifier implements Verifier {
         continue;
       }
 
-      // 2. Check if result indicates success
+      // 2. Check if result is an Error
+      if (call.result instanceof Error) {
+        details.push({
+          field: `${call.tool}.result`,
+          passed: false,
+          message: `API call "${call.tool}" returned an error: ${call.result.message}`,
+        });
+        score -= 30;
+        continue;
+      }
+
+      // 3. Check if result indicates success
       const resultObj = call.result as Record<string, unknown> | undefined;
       const statusCode = resultObj?.status ||
                          resultObj?.statusCode ||
@@ -133,7 +144,7 @@ export class ApiVerifier implements Verifier {
             passed: false,
             message: `Live API check failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
           });
-          score -= 15;
+          score -= 30;
         }
       }
 
@@ -182,7 +193,7 @@ export class ApiVerifier implements Verifier {
       timestamp: new Date(),
       durationMs: Date.now() - startTime,
       suggestedFix: status === 'failed'
-        ? '检查 API 端点是否可达，确认返回值符合预期'
+        ? this.config.suggestedFixMessage || 'Verify API endpoint is reachable and response matches expected format'
         : undefined,
     };
   }

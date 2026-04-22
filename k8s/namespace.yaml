@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: arp-system
+  labels:
+    app.kubernetes.io/name: arp
+    app.kubernetes.io/managed-by: kubectl

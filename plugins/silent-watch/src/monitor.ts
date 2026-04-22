@@ -13,7 +13,11 @@ import {
   isDebug,
   debugLog,
 } from './config';
-import { Detector, AlertHandler, MonitorStats, AgentSession, ToolCallEvent, ResponseEvent, CronEvent } from './types';
+import { createLogger } from './logger';
+import { Detector, DetectorResult, AlertHandler, MonitorStats, AgentSession, ToolCallEvent, ResponseEvent, CronEvent } from './types';
+
+// Maximum size for alert history file before rotation (1MB)
+const MAX_ALERT_HISTORY_SIZE = 1024 * 1024;
 
 // Re-export types for external use
 export type { MonitorStats, AgentSession, ToolCallEvent, ResponseEvent, CronEvent, AlertHandler };
@@ -39,6 +43,7 @@ export class SilentWatchMonitor {
   private stats: MonitorStats;
   private startTime: Date;
   private alertHandler: AlertHandler | undefined;
+  private logger = createLogger({ plugin: 'silent-watch' });
 
   // Notifiers
   private consoleNotifier: ConsoleNotifier;
@@ -86,8 +91,7 @@ export class SilentWatchMonitor {
     // Load alert history if exists
     this.loadAlertHistory();
 
-    console.log('[SilentWatch] Monitor initialized');
-    console.log(`[SilentWatch] Active detectors: ${Array.from(this.detectors.keys()).join(', ')}`);
+    this.logger.info('Monitor initialized', { detectors: Array.from(this.detectors.keys()) });
   }
 
   private setupDetectors(): void {
@@ -160,11 +164,11 @@ export class SilentWatchMonitor {
   recordToolCall(toolName: string, args?: Record<string, unknown>, result?: unknown, duration?: number): void {
     // Validate input
     if (!toolName || typeof toolName !== 'string') {
-      console.warn('[SilentWatch] Invalid toolName provided:', toolName);
+      this.logger.warn('Invalid toolName provided', { toolName });
       return;
     }
     if (duration !== undefined && (typeof duration !== 'number' || duration < 0)) {
-      console.warn('[SilentWatch] Invalid duration provided:', duration);
+      this.logger.warn('Invalid duration provided', { duration });
       return;
     }
 
@@ -183,7 +187,7 @@ export class SilentWatchMonitor {
   recordResponse(content: string, responseLength?: number): void {
     // Validate input
     if (content === undefined || content === null) {
-      console.warn('[SilentWatch] Invalid content provided to recordResponse');
+      this.logger.warn('Invalid content provided to recordResponse');
       return;
     }
 
@@ -220,11 +224,11 @@ export class SilentWatchMonitor {
   registerCronTask(name: string, id: string, intervalMs: number): void {
     // Validate input
     if (!name || !id) {
-      console.warn('[SilentWatch] Invalid task registration: name and id are required');
+      this.logger.warn('Invalid task registration: name and id are required');
       return;
     }
     if (!intervalMs || intervalMs < 1000) {
-      console.warn('[SilentWatch] Invalid intervalMs: must be at least 1000ms');
+      this.logger.warn('Invalid intervalMs: must be at least 1000ms', { intervalMs });
       return;
     }
 
@@ -241,7 +245,7 @@ export class SilentWatchMonitor {
     const events = this.eventHistory;
 
     // Collect all triggered alerts first to avoid concurrency issues
-    const alertsToTrigger: Array<{ name: string; result: any }> = [];
+    const alertsToTrigger: Array<{ name: string; result: DetectorResult }> = [];
 
     for (const [name, detector] of this.detectors) {
       try {
@@ -251,7 +255,7 @@ export class SilentWatchMonitor {
           alertsToTrigger.push({ name, result });
         }
       } catch (error) {
-        console.error(`[SilentWatch] Detector ${name} error:`, error);
+        this.logger.error(`Detector ${name} error`, { detector: name, error: String(error) });
       }
     }
 
@@ -260,7 +264,7 @@ export class SilentWatchMonitor {
     for (const { name, result } of alertsToTrigger) {
       this.triggerAlert({
         id: uuidv4(),
-        type: result.alertType,
+        type: result.alertType!,
         severity: result.severity || 'medium',
         message: result.message || `Alert from ${name}`,
         details: result.details || {},
@@ -310,6 +314,72 @@ export class SilentWatchMonitor {
   }
 
   /**
+   * Acquire a file lock with timeout
+   * @param path - The file path to lock
+   * @param maxWaitMs - Maximum time to wait for lock acquisition
+   * @returns true if lock acquired, false if timeout
+   */
+  private async acquireLock(path: string, maxWaitMs: number): Promise<boolean> {
+    const lockPath = path + '.lock';
+    const startTime = Date.now();
+
+    while (true) {
+      try {
+        // Try to create the lock file exclusively
+        fs.writeFileSync(lockPath, process.pid.toString(), { flag: 'wx' });
+        return true;
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+          // Unexpected error, don't retry
+          this.logger.error('Lock acquisition error', { error: String(error) });
+          return false;
+        }
+
+        // Lock exists, check if it's stale (older than maxWaitMs)
+        try {
+          const stats = fs.statSync(lockPath);
+          const age = Date.now() - stats.mtime.getTime();
+          if (age > maxWaitMs) {
+            // Stale lock, try to remove it
+            try {
+              fs.unlinkSync(lockPath);
+              continue;
+            } catch {
+              // Another process took it, continue waiting
+            }
+          }
+        } catch {
+          // Lock file disappeared, try again
+          continue;
+        }
+
+        // Check timeout
+        if (Date.now() - startTime >= maxWaitMs) {
+          return false;
+        }
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }
+  }
+
+  /**
+   * Release a file lock
+   * @param path - The file path to unlock
+   */
+  private async releaseLock(path: string): Promise<void> {
+    const lockPath = path + '.lock';
+    try {
+      fs.unlinkSync(lockPath);
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        this.logger.error('Lock release error', { error: String(error) });
+      }
+    }
+  }
+
+  /**
    * Trigger an alert
    */
   private triggerAlert(alert: Alert): void {
@@ -318,12 +388,12 @@ export class SilentWatchMonitor {
 
     // Check for duplicate alerts
     if (this.isDuplicateAlert(alert)) {
-      console.log(`[SilentWatch] 🚫 Duplicate alert suppressed: ${alert.message}`);
+      this.logger.info('Duplicate alert suppressed', { alertType: alert.type, message: alert.message });
       // Don't save suppressed alerts to history or update stats
       return;
     }
 
-    console.log(`[SilentWatch] 🚨 Alert triggered: ${alert.message}`);
+    this.logger.info('Alert triggered', { alertType: alert.type, severity: alert.severity, message: alert.message });
 
     // Track this alert fingerprint for deduplication
     const fingerprint = this.getAlertFingerprint(alert);
@@ -345,20 +415,22 @@ export class SilentWatchMonitor {
 
     // Save to history
     this.alertHistory.push(alert);
-    this.saveAlertHistory();
+    this.saveAlertHistory().catch(err =>
+      this.logger.error('Failed to save alert history', { error: String(err) })
+    );
 
     // Send to all notifiers (fire-and-forget for sync compatibility)
     this.consoleNotifier.send(alert).catch(err =>
-      console.error('[SilentWatch] Console notifier error:', err)
+      this.logger.error('Console notifier error', { error: String(err) })
     );
     this.weChatNotifier.send(alert).catch(err =>
-      console.error('[SilentWatch] WeChat notifier error:', err)
+      this.logger.error('WeChat notifier error', { error: String(err) })
     );
     this.telegramNotifier.send(alert).catch(err =>
-      console.error('[SilentWatch] Telegram notifier error:', err)
+      this.logger.error('Telegram notifier error', { error: String(err) })
     );
     this.emailNotifier.send(alert).catch(err =>
-      console.error('[SilentWatch] Email notifier error:', err)
+      this.logger.error('Email notifier error', { error: String(err) })
     );
 
     // Call custom handler if set
@@ -368,11 +440,11 @@ export class SilentWatchMonitor {
         // Handle async handlers
         if (result && typeof result.catch === 'function') {
           result.catch((err: unknown) =>
-            console.error('[SilentWatch] Custom alert handler error:', err)
+            this.logger.error('Custom alert handler error', { error: String(err) })
           );
         }
       } catch (error) {
-        console.error('[SilentWatch] Custom alert handler error:', error);
+        this.logger.error('Custom alert handler error', { error: String(error) });
       }
     }
 
@@ -381,7 +453,7 @@ export class SilentWatchMonitor {
       try {
         this.config.onAlert(alert);
       } catch (error) {
-        console.error('[SilentWatch] Config onAlert callback error:', error);
+        this.logger.error('Config onAlert callback error', { error: String(error) });
       }
     }
 
@@ -396,9 +468,14 @@ export class SilentWatchMonitor {
   /**
    * Load alert history from file
    */
-  private loadAlertHistory(): void {
+  private async loadAlertHistory(): Promise<void> {
     if (!this.config.alertHistoryPath) return;
-
+    const lockPath = this.config.alertHistoryPath + '.lock';
+    const acquired = await this.acquireLock(lockPath, 5000);
+    if (!acquired) {
+      this.logger.warn('Could not acquire lock for alert history, skipping');
+      return;
+    }
     try {
       if (fs.existsSync(this.config.alertHistoryPath)) {
         const data = fs.readFileSync(this.config.alertHistoryPath, 'utf-8');
@@ -407,29 +484,82 @@ export class SilentWatchMonitor {
           ...a,
           timestamp: new Date(a.timestamp),
         }));
-        console.log(`[SilentWatch] Loaded ${this.alertHistory.length} past alerts`);
+        this.logger.info('Loaded past alerts', { count: this.alertHistory.length });
       }
     } catch (error) {
-      console.error('[SilentWatch] Failed to load alert history:', error);
+      this.logger.error('Failed to load alert history', { error: String(error) });
       this.alertHistory = [];
+    } finally {
+      await this.releaseLock(lockPath);
+    }
+  }
+
+  /**
+   * Rotate alert history file if it exceeds the size limit
+   * Keeps up to 3 rotated files (.1, .2, .3)
+   */
+  private rotateAlertHistoryIfNeeded(): void {
+    const historyPath = this.config.alertHistoryPath;
+    if (!historyPath) return;
+
+    try {
+      if (!fs.existsSync(historyPath)) return;
+
+      const stats = fs.statSync(historyPath);
+      if (stats.size <= MAX_ALERT_HISTORY_SIZE) return;
+
+      // Rotate: .3 -> delete, .2 -> .3, .1 -> .2, main -> .1
+      const rotatedPath3 = historyPath + '.3';
+      const rotatedPath2 = historyPath + '.2';
+      const rotatedPath1 = historyPath + '.1';
+
+      // Delete oldest rotation file if it exists
+      if (fs.existsSync(rotatedPath3)) {
+        fs.unlinkSync(rotatedPath3);
+      }
+
+      // Shift rotation files
+      if (fs.existsSync(rotatedPath2)) {
+        fs.renameSync(rotatedPath2, rotatedPath3);
+      }
+      if (fs.existsSync(rotatedPath1)) {
+        fs.renameSync(rotatedPath1, rotatedPath2);
+      }
+
+      // Rotate main file to .1
+      fs.renameSync(historyPath, rotatedPath1);
+
+      this.logger.info('Alert history file rotated due to size', { size: stats.size });
+    } catch (error) {
+      this.logger.error('Failed to rotate alert history', { error: String(error) });
     }
   }
 
   /**
    * Save alert history to file
    */
-  private saveAlertHistory(): void {
+  private async saveAlertHistory(): Promise<void> {
     if (!this.config.alertHistoryPath) return;
-
+    const lockPath = this.config.alertHistoryPath + '.lock';
+    const acquired = await this.acquireLock(lockPath, 5000);
+    if (!acquired) {
+      console.warn('[SilentWatch] Could not acquire lock for alert history, skipping');
+      return;
+    }
     try {
+      // Rotate file if it exceeds size limit
+      this.rotateAlertHistoryIfNeeded();
+
       // Keep last 100 alerts
       const toSave = this.alertHistory.slice(-100);
-      fs.writeFileSync(
+      await fs.promises.writeFile(
         this.config.alertHistoryPath,
         JSON.stringify(toSave, null, 2)
       );
     } catch (error) {
-      console.error('[SilentWatch] Failed to save alert history:', error);
+      this.logger.error('Failed to save alert history', { error: String(error) });
+    } finally {
+      await this.releaseLock(lockPath);
     }
   }
 
@@ -482,7 +612,9 @@ export class SilentWatchMonitor {
     const alert = this.alertHistory.find(a => a.id === alertId);
     if (alert) {
       alert.acknowledged = true;
-      this.saveAlertHistory();
+      this.saveAlertHistory().catch(err =>
+        this.logger.error('Failed to save alert history', { error: String(err) })
+      );
       return true;
     }
     return false;
@@ -495,15 +627,17 @@ export class SilentWatchMonitor {
     for (const detector of this.detectors.values()) {
       detector.reset();
     }
-    console.log('[SilentWatch] All detectors reset');
+    this.logger.info('All detectors reset');
   }
 
   /**
    * Update configuration at runtime
    */
   updateConfig(config: Partial<SilentWatchConfig>): void {
-    Object.assign(this.config, config);
-    console.log('[SilentWatch] Configuration updated');
+    // Deep merge to avoid mutating nested objects
+    const prevConfig = this.config;
+    this.config = structuredClone({ ...prevConfig, ...config });
+    this.logger.info('Configuration updated');
   }
 
   /**
@@ -568,7 +702,9 @@ export class SilentWatchMonitor {
    * Stop the monitor
    */
   stop(): void {
-    console.log('[SilentWatch] Monitor stopped');
-    this.saveAlertHistory();
+    this.logger.info('Monitor stopped');
+    this.saveAlertHistory().catch(err =>
+      this.logger.error('Failed to save alert history', { error: String(err) })
+    );
   }
 }

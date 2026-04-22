@@ -29,10 +29,17 @@ export class TimeoutDetector implements Detector {
     const now = new Date();
 
     // Track step boundaries
-    // A new step starts when we see a tool_call after some other event
-    if (lastEvent.type === 'tool_call' && this.lastEventType !== 'tool_call') {
-      // New step started
-      this.stepStartTime = lastEvent.timestamp;
+    // Each tool_call starts a new step - reset timer for every tool_call
+    if (lastEvent.type === 'tool_call') {
+      // New step started, reset timer
+      // Ensure timestamp is a Date object (may be string from external sources)
+      if (lastEvent.timestamp instanceof Date) {
+        this.stepStartTime = lastEvent.timestamp;
+      } else if (typeof lastEvent.timestamp === 'string') {
+        this.stepStartTime = new Date(lastEvent.timestamp);
+      } else {
+        this.stepStartTime = new Date();
+      }
     }
 
     this.lastEventType = lastEvent.type;
@@ -48,14 +55,19 @@ export class TimeoutDetector implements Detector {
         const overagePercent = Math.round((overage / timeout) * 100);
 
         let severity: 'low' | 'medium' | 'high' | 'critical';
-        if (overagePercent > 300) {
-          severity = 'critical';
-        } else if (overagePercent > 150) {
-          severity = 'high';
-        } else if (overagePercent > 50) {
-          severity = 'medium';
-        } else {
-          severity = 'low';
+        switch (true) {
+          case overagePercent > 300:
+            severity = 'critical';
+            break;
+          case overagePercent > 150:
+            severity = 'high';
+            break;
+          case overagePercent > 50:
+            severity = 'medium';
+            break;
+          default:
+            severity = 'low';
+            break;
         }
 
         return {

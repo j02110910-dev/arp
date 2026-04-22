@@ -1,0 +1,33 @@
+{
+  "alert": {
+    "loop_detected": "检测到代理通信循环",
+    "timeout": "操作超时",
+    "empty_response": "收到空响应",
+    "anomaly": "检测到系统行为异常",
+    "cron_missed": "定时任务错过执行窗口"
+  },
+  "verification": {
+    "passed": "验证通过",
+    "failed": "验证失败",
+    "skipped": "验证跳过"
+  },
+  "guard": {
+    "allowed": "操作已允许",
+    "blocked": "操作已阻止",
+    "requires_confirmation": "操作需要确认"
+  },
+  "compression": {
+    "context_compressed": "上下文已压缩，从 {original} 标记压缩至 {compressed} 标记",
+    "anchor_added": "已添加锚点：{anchor}"
+  },
+  "dashboard": {
+    "agent_count": "{count} 个代理在线",
+    "alert_summary": "{critical} 个严重，{warning} 个警告，{info} 个信息",
+    "health_status": "系统健康状态：{status}"
+  },
+  "error": {
+    "load_failed": "加载 {resource} 失败",
+    "save_failed": "保存 {resource} 失败",
+    "config_invalid": "配置无效：{reason}"
+  }
+}

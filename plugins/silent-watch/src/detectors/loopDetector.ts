@@ -17,7 +17,7 @@ export class LoopDetector implements Detector {
 
   constructor(config: DetectorConfig) {
     this.config = {
-      maxConsecutiveCalls: config.maxConsecutiveCalls || 10,
+      maxConsecutiveCalls: config.maxConsecutiveCalls || 5,
       contextSnapshotSize: config.contextSnapshotSize || 10,
     };
   }
@@ -103,10 +103,14 @@ export class LoopDetector implements Detector {
       };
     }
 
-    // If this tool is no longer being called consecutively, clear its alert state
-    if (consecutiveCalls === 1 && this.alertedTools.has(toolName)) {
-      this.alertedTools.delete(toolName);
-      this.consecutiveSameResultCount.delete(toolName);
+    // If the consecutive call chain is broken (different tool called), clear alert state
+    // Check if the second-to-last tool call is different from current tool
+    if (toolCallEvents.length >= 2) {
+      const secondLastTool = toolCallEvents[toolCallEvents.length - 2]?.tool;
+      if (secondLastTool !== undefined && secondLastTool !== toolName && this.alertedTools.has(toolName)) {
+        this.alertedTools.delete(toolName);
+        this.consecutiveSameResultCount.delete(toolName);
+      }
     }
 
     return { triggered: false };

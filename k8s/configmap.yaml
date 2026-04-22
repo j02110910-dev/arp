@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: arp-config
+  namespace: arp-system
+  labels:
+    app.kubernetes.io/name: arp
+    app.kubernetes.io/component: config
+data:
+  # Application settings
+  NODE_ENV: "production"
+  PORT: "3000"
+
+  # Feature flags
+  LOG_LEVEL: "info"
+  DEBUG: "false"
+
+  # SilentWatch monitoring
+  SILENT_WATCH_ENABLED: "true"
+  SILENT_WATCH_MAX_CONSECUTIVE_CALLS: "10"
+  SILENT_WATCH_MAX_CONSECUTIVE_EMPTY: "3"
+  SILENT_WATCH_STEP_TIMEOUT_MS: "60000"
+  SILENT_WATCH_CONTEXT_SIZE: "10"
+  SILENT_WATCH_API_KEY: ""
+  SILENT_WATCH_REQUIRE_AUTH: "false"
+
+  # Cognitive Governor (memory/compression)
+  COGNITIVE_GOVERNOR_ENABLED: "true"
+  COGNITIVE_GOVERNOR_TOKEN_LIMIT: "8000"
+  COGNITIVE_GOVERNOR_THRESHOLD: "0.7"
+  COGNITIVE_GOVERNOR_STRATEGY: "smart"
+
+  # Permission Sentinel (security)
+  GUARD_ENABLED: "true"
+
+  # Dashboard CORS (set to actual domain in production)
+  DASHBOARD_ALLOWED_ORIGIN: "localhost"
+
+  # Output Verifier
+  OUTPUT_VERIFIER_ENABLED: "true"
+  OUTPUT_VERIFIER_STRICTNESS: "standard"
+  OUTPUT_VERIFIER_REPORT_PATH: "/data/verifier-reports"
+  OUTPUT_VERIFIER_API_URL: ""
+  OUTPUT_VERIFIER_API_KEY: ""
+  OUTPUT_VERIFIER_VISION_API_KEY: ""
+
+  # Shared notification settings
+  SERVER_CHAN_KEY: ""
+  SMTP_HOST: ""
+  SMTP_PORT: "587"
+  SMTP_USER: ""
+  SMTP_PASS: ""
+  TO_EMAIL: ""
+  FROM_EMAIL: ""
+  TELEGRAM_BOT_TOKEN: ""
+  TELEGRAM_CHAT_ID: ""
+
+  # Persistence paths
+  DATA_PATH: "/data/arp"
+  ALERT_HISTORY_PATH: "/data/alert-history"

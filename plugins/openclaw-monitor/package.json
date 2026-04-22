@@ -1,0 +1,22 @@
+{
+  "name": "@arp/openclaw-monitor",
+  "version": "0.1.0",
+  "description": "OpenClaw integration for ARP - Monitor OpenClaw agent sessions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo 'No tests yet'"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "arp": "^0.1.0"
+  },
+  "keywords": [
+    "arp",
+    "openclaw",
+    "agent",
+    "monitoring"
+  ],
+  "license": "MIT"
+}

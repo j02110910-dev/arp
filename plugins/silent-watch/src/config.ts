@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { createLogger } from './logger';
 
 // Load environment variables
 dotenv.config();
@@ -13,12 +14,14 @@ dotenv.config();
 // Debug mode flag
 export const isDebug = process.env.DEBUG === 'true' || process.env.NODE_ENV === 'development';
 
+const logger = createLogger({ plugin: 'silent-watch', detector: 'config' });
+
 /**
  * Debug logging helper
  */
 export function debugLog(message: string, ...args: unknown[]): void {
-  if (isDebug) {
-    console.log(`[DEBUG] ${message}`, ...args);
+  if (isDebug && logger.debug) {
+    logger.debug(`[DEBUG] ${message}`, { args });
   }
 }
 
@@ -110,8 +113,10 @@ export interface AlertContext {
 }
 
 export interface MonitoringEvent {
-  timestamp: Date;
-  type: EventType;
+  timestamp?: Date;
+  // Using string type to allow both predefined EventType values and custom event types
+  // from external sources (e.g., CLI tools that need extensibility)
+  type: string;
   tool?: string;
   model?: string;
   duration?: number;
@@ -177,73 +182,113 @@ function validateConfig(config: SilentWatchConfig): void {
   // Validate detector settings
   if (config.detectors.maxConsecutiveCalls !== undefined) {
     if (config.detectors.maxConsecutiveCalls < 1) {
-      console.warn('[Config] maxConsecutiveCalls must be at least 1, using default');
+      logger.warn('maxConsecutiveCalls must be at least 1, using default');
       config.detectors.maxConsecutiveCalls = DEFAULT_CONFIG.detectors.maxConsecutiveCalls!;
     }
     if (config.detectors.maxConsecutiveCalls > 100) {
-      console.warn('[Config] maxConsecutiveCalls is unusually high (>100)');
+      logger.warn('maxConsecutiveCalls is unusually high (>100)');
     }
   }
 
   if (config.detectors.maxConsecutiveEmpty !== undefined) {
     if (config.detectors.maxConsecutiveEmpty < 1) {
-      console.warn('[Config] maxConsecutiveEmpty must be at least 1, using default');
+      logger.warn('maxConsecutiveEmpty must be at least 1, using default');
       config.detectors.maxConsecutiveEmpty = DEFAULT_CONFIG.detectors.maxConsecutiveEmpty!;
     }
   }
 
   if (config.detectors.stepTimeoutMs !== undefined) {
     if (config.detectors.stepTimeoutMs < 1000) {
-      console.warn('[Config] stepTimeoutMs is too low (<1s), using default');
+      logger.warn('stepTimeoutMs is too low (<1s), using default');
       config.detectors.stepTimeoutMs = DEFAULT_CONFIG.detectors.stepTimeoutMs!;
     }
     if (config.detectors.stepTimeoutMs > 3600000) {
-      console.warn('[Config] stepTimeoutMs is very high (>1 hour)');
+      logger.warn('stepTimeoutMs is very high (>1 hour)');
     }
   }
 
   if (config.detectors.contextSnapshotSize !== undefined) {
     if (config.detectors.contextSnapshotSize < 1) {
-      console.warn('[Config] contextSnapshotSize must be at least 1, using default');
+      logger.warn('contextSnapshotSize must be at least 1, using default');
       config.detectors.contextSnapshotSize = DEFAULT_CONFIG.detectors.contextSnapshotSize!;
     }
   }
 
   // Validate notifier settings
   if (config.notifiers.wechat?.enabled && !config.notifiers.wechat.server酱Key) {
-    console.warn('[Config] WeChat notifier enabled but no server酱Key provided');
+    logger.warn('WeChat notifier enabled but no server酱Key provided');
     config.notifiers.wechat.enabled = false;
   }
 
   if (config.notifiers.telegram?.enabled) {
     if (!config.notifiers.telegram.botToken || !config.notifiers.telegram.chatId) {
-      console.warn('[Config] Telegram notifier enabled but botToken or chatId missing');
+      logger.warn('Telegram notifier enabled but botToken or chatId missing');
       config.notifiers.telegram.enabled = false;
     }
   }
 
   if (config.notifiers.email?.enabled) {
     if (!config.notifiers.email.smtpHost || !config.notifiers.email.smtpUser || !config.notifiers.email.toEmail) {
-      console.warn('[Config] Email notifier enabled but required fields (smtpHost, smtpUser, toEmail) missing');
+      logger.warn('Email notifier enabled but required fields (smtpHost, smtpUser, toEmail) missing');
       config.notifiers.email.enabled = false;
     }
-    if (config.notifiers.email.smtpPort && (config.notifiers.email.smtpPort < 1 || config.notifiers.email.smtpPort > 65535)) {
-      console.warn('[Config] Invalid smtpPort, using default (587)');
+    if (config.notifiers.email?.smtpPort !== undefined && (config.notifiers.email.smtpPort < 1 || config.notifiers.email.smtpPort > 65535)) {
+      logger.warn('Invalid smtpPort, using default (587)');
       config.notifiers.email.smtpPort = 587;
     }
   }
 }
 
 /**
+ * Deep merge two objects (手动的递归合并)
+ * Used to properly merge nested config objects
+ */
+function deepMerge<T extends object>(target: T, source: Partial<T>): T {
+  const result = { ...target } as T;
+  
+  for (const key of Object.keys(source) as (keyof T)[]) {
+    const sourceValue = source[key];
+    const targetValue = result[key];
+    
+    if (sourceValue === undefined) {
+      continue;
+    }
+    
+    // If both are plain objects, merge recursively
+    if (
+      sourceValue !== null &&
+      typeof sourceValue === 'object' &&
+      !Array.isArray(sourceValue) &&
+      targetValue !== null &&
+      typeof targetValue === 'object' &&
+      !Array.isArray(targetValue)
+    ) {
+      (result as Record<string, unknown>)[key as string] = deepMerge(
+        targetValue as Record<string, unknown>,
+        sourceValue as Record<string, unknown>
+      );
+    } else if (sourceValue !== undefined) {
+      (result as Record<string, unknown>)[key as string] = sourceValue;
+    }
+  }
+  
+  return result;
+}
+
+/**
  * Load configuration from environment and optionally from a config file
  */
 export function loadConfig(configPath?: string): SilentWatchConfig {
-  // Start with defaults
-  const config: SilentWatchConfig = { ...DEFAULT_CONFIG };
+  // Start with defaults - deep copy to avoid mutating DEFAULT_CONFIG
+  const config: SilentWatchConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
 
   // Override with environment variables
-  if (process.env.SILENT_WATCH_ENABLED === 'false') {
-    config.enabled = false;
+  if (process.env.SILENT_WATCH_ENABLED !== undefined) {
+    const val = process.env.SILENT_WATCH_ENABLED.toLowerCase();
+    const isFalsy = ['false', '0', 'no', 'off', 'disabled'].includes(val);
+    const isTruthy = ['true', '1', 'yes', 'on', 'enabled'].includes(val);
+    if (isFalsy) config.enabled = false;
+    else if (isTruthy) config.enabled = true;
   }
 
   // Detector settings from env
@@ -318,11 +363,11 @@ export function loadConfig(configPath?: string): SilentWatchConfig {
   if (configPath && fs.existsSync(configPath)) {
     try {
       const fileConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-      // Deep merge file config
-      Object.assign(config, fileConfig);
+      // Deep merge file config into current config (properly handles nested objects like notifiers)
+      Object.assign(config, deepMerge(config, fileConfig));
     } catch (error) {
-      console.error('[Config] Failed to parse config file:', configPath, error);
-      console.error('[Config] Using default configuration');
+      logger.error('Failed to parse config file', { configPath, error: String(error) });
+      logger.warn('Using default configuration');
     }
   }
 

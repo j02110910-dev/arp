@@ -249,6 +249,14 @@ npm run build
 npm run dev
 \`\`\`
 
+## Pricing
+
+| Plan | Price | Description |
+|------|-------|-------------|
+| Free | $0 | Basic features for local development |
+| Pro | $50/mo | Full features with unlimited agents |
+| Enterprise | $50/mo | Custom integrations and priority support |
+
 ## License
 
 MIT

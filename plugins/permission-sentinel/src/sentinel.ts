@@ -13,6 +13,89 @@ import {
   SensitiveDataMatch,
   RiskLevel,
 } from './types';
+import { logger } from './logger';
+
+// ─── ReDoS Protection ─────────────────────────────────────────
+
+/**
+ * Check if a regex pattern is potentially vulnerable to ReDoS.
+ * Returns { safe: true } if the pattern is safe to execute.
+ * Returns { safe: false, reason: string } if the pattern is potentially dangerous.
+ */
+function checkRegexSafety(pattern: string): { safe: boolean; reason?: string } {
+  // Pattern complexity limits
+  const MAX_ALTERNATIONS = 10;
+  const MAX_NESTED_QUANTIFIERS = 2;
+  const MAX_CHAR_CLASSES = 20;
+  const MAX_GROUPS = 20;
+
+  let alternationCount = 0;
+  let nestedQuantifierDepth = 0;
+  let charClassCount = 0;
+  let groupCount = 0;
+  let inCharClass = false;
+
+  // Patterns that indicate potential ReDoS: nested quantifiers with overlapping alternatives
+  // e.g., (a+)+, (a*)*, (a+)*, (a|b)+b
+  // We skip the aggressive dangerousPatterns check since it produces false positives with char classes
+  // The token-by-token analysis below is more precise
+
+  // Token-by-token analysis
+  for (let i = 0; i < pattern.length; i++) {
+    const ch = pattern[i];
+    const nextCh = pattern[i + 1];
+
+    if (ch === '[') {
+      inCharClass = true;
+      charClassCount++;
+      if (charClassCount > MAX_CHAR_CLASSES) {
+        return { safe: false, reason: `Too many character classes (limit: ${MAX_CHAR_CLASSES})` };
+      }
+    } else if (ch === ']') {
+      inCharClass = false;
+    } else if (ch === '(') {
+      groupCount++;
+      if (groupCount > MAX_GROUPS) {
+        return { safe: false, reason: `Too many groups (limit: ${MAX_GROUPS})` };
+      }
+      // Check for non-capturing group or lookahead
+      if (pattern[i + 1] === '?') {
+        i++; // skip the ?
+        if (pattern[i + 1] === ':' || pattern[i + 1] === '=' || pattern[i + 1] === '!') {
+          i++;
+        }
+      }
+    } else if (ch === '|') {
+      alternationCount++;
+      if (alternationCount > MAX_ALTERNATIONS) {
+        return { safe: false, reason: `Too many alternations (limit: ${MAX_ALTERNATIONS})` };
+      }
+    } else if ((ch === '+' || ch === '*') && !inCharClass) {
+      // Check what follows the quantifier
+      if (nextCh === '+' || nextCh === '*') {
+        nestedQuantifierDepth++;
+        if (nestedQuantifierDepth > MAX_NESTED_QUANTIFIERS) {
+          return { safe: false, reason: `Nested quantifiers detected (limit: ${MAX_NESTED_QUANTIFIERS})` };
+        }
+      }
+      // Check for quantifier followed by alternation or group end - common ReDoS pattern
+      // e.g., (a+)+, (a*)*, (a+)|, (a*)|
+      if (nextCh === '|' || nextCh === ')') {
+        nestedQuantifierDepth++;
+        if (nestedQuantifierDepth > MAX_NESTED_QUANTIFIERS) {
+          return { safe: false, reason: `Quantifier with overlapping alternatives detected (limit: ${MAX_NESTED_QUANTIFIERS})` };
+        }
+      }
+    }
+  }
+
+  // Additional heuristic: very long pattern (>500 chars) is suspicious
+  if (pattern.length > 500) {
+    return { safe: false, reason: `Pattern too long (${pattern.length} chars, limit: 500)` };
+  }
+
+  return { safe: true };
+}
 
 // Built-in dangerous command patterns
 const BUILTIN_RULES: SecurityRule[] = [
@@ -129,7 +212,7 @@ const SENSITIVE_PATTERNS: Array<{
   },
   {
     type: 'api_key',
-    pattern: /\b(sk-|ak-|api[_-]?key[=:]?\s*)[a-zA-Z0-9]{20,}\b/gi,
+    pattern: /\b(sk-|ak-|api[_-]?key[=:]?\s*|private[_-]?key[=:]?\s*|ghp_|gho_|ghu_|ghs_|ghr_|AKIA[0-9A-Z]{16}|SG\.|key-|xox[baprs]-|secret[_-]|token[_-]|bearer\s+|eyJ[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*\.[a-zA-Z0-9_-]*)[a-zA-Z0-9_.\\-]{10,}\b/gi,
     replacement: '[API_KEY_REDACTED]',
   },
   {
@@ -149,7 +232,39 @@ const SENSITIVE_PATTERNS: Array<{
   },
 ];
 
+// ─── Chinese ID Card Validation ─────────────────────────────────
+
+/**
+ * Validate Chinese ID card checksum (18-digit ID)
+ * Returns true if the ID is valid (checksum passes), false otherwise.
+ * This helps reduce false positives from the regex pattern.
+ */
+function validateChineseIdCard(id: string): boolean {
+  if (!id || id.length !== 18) return false;
+
+  const weights = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+  const checkCodes = ['1', '0', 'X', '9', '8', '7', '6', '5', '4', '3', '2'];
+
+  const first17 = id.substring(0, 17);
+  const lastChar = id.charAt(17).toUpperCase();
+
+  // Check first 17 chars are all digits
+  if (!/^\d{17}$/.test(first17)) return false;
+
+  // Calculate weighted sum
+  let sum = 0;
+  for (let i = 0; i < 17; i++) {
+    sum += parseInt(first17[i], 10) * weights[i];
+  }
+
+  // Get expected check code
+  const expectedCode = checkCodes[sum % 11];
+
+  return lastChar === expectedCode;
+}
+
 export class PermissionSentinel {
+  private static readonly MAX_ACTIONS = 10000;
   private config: PermissionSentinelConfig;
   private rules: SecurityRule[] = [];
   private actionLog: SecurityResult[] = [];
@@ -174,6 +289,12 @@ export class PermissionSentinel {
   private setupCustomSanitizers(): void {
     if (this.config.customSanitizers) {
       for (const s of this.config.customSanitizers) {
+        // ReDoS protection: check regex complexity before storing
+        const safety = checkRegexSafety(s.pattern.source);
+        if (!safety.safe) {
+          logger.warn(`Skipping custom sanitizer "${s.name}"`, { reason: safety.reason });
+          continue;
+        }
         this.customSanitizers.push({
           name: s.name,
           pattern: new RegExp(s.pattern.source, s.pattern.flags),
@@ -191,11 +312,13 @@ export class PermissionSentinel {
   checkAction(action: SecurityAction): SecurityResult {
     const command = action.command.toLowerCase().trim();
 
-    // Check whitelist first
+    // Check whitelist first — set flag, don't return early
+    let whitelistReason: string | undefined;
     if (this.config.safeCommands) {
       for (const safe of this.config.safeCommands) {
         if (command.startsWith(safe.toLowerCase())) {
-          return this.buildResult(action.id, 'safe', true, false, `Whitelisted: ${safe}`);
+          whitelistReason = `Whitelisted: ${safe}`;
+          break;
         }
       }
     }
@@ -203,7 +326,7 @@ export class PermissionSentinel {
     // Check blacklist
     if (this.config.blockedCommands) {
       for (const blocked of this.config.blockedCommands) {
-        if (command.includes(blocked.toLowerCase())) {
+        if (new RegExp(`\\b${blocked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(command)) {
           return this.buildResult(action.id, 'critical', false, false,
             `Blocked: "${blocked}" is in the blacklist`, `blocked:${blocked}`);
         }
@@ -213,8 +336,26 @@ export class PermissionSentinel {
     // Check rules
     for (const rule of this.rules) {
       try {
+        // ReDoS protection: check regex complexity before compilation
+        const safety = checkRegexSafety(rule.pattern);
+        if (!safety.safe) {
+          logger.warn(`Skipping rule "${rule.id}"`, { reason: safety.reason });
+          continue;
+        }
         const regex = new RegExp(rule.pattern, 'i');
         if (regex.test(action.command)) {
+          // Whitelist overrides rule action - if whitelisted, allow regardless of rule
+          if (whitelistReason) {
+            return this.buildResult(
+              action.id,
+              rule.riskLevel,
+              true, // allowed = true (whitelist overrides block)
+              false, // no confirmation needed for whitelisted commands
+              whitelistReason,
+              undefined, // no matchedRule since whitelist overrides
+              undefined
+            );
+          }
           const allowed = rule.action !== 'block';
           const needsConfirm = rule.action === 'confirm';
           return this.buildResult(
@@ -227,12 +368,15 @@ export class PermissionSentinel {
             rule.safeAlternative
           );
         }
-      } catch {
-        // Invalid regex, skip
+      } catch (e) {
+        logger.warn(`Skipping rule "${rule.id}" due to invalid regex`, { error: e instanceof Error ? e.message : String(e) });
       }
     }
 
-    return this.buildResult(action.id, 'safe', true, false, 'No security concerns detected');
+    // No rule matched — safe by default; whitelist skips confirmation
+    const needsConfirm = whitelistReason ? false : false;
+    return this.buildResult(action.id, 'safe', true, needsConfirm,
+      whitelistReason ?? 'No security concerns detected');
   }
 
   /**
@@ -266,11 +410,16 @@ export class PermissionSentinel {
       const matches = [...text.matchAll(sp.pattern)];
       for (const match of matches) {
         if (match.index !== undefined) {
+          const matchedValue = match[0];
+          // For ID cards, validate checksum to avoid false positives
+          if (sp.type === 'id_card' && !validateChineseIdCard(matchedValue)) {
+            continue; // Skip invalid ID card numbers
+          }
           allMatches.push({
             type: sp.type,
-            original: match[0],
+            original: matchedValue,
             replacement: sp.replacement,
-            position: { start: match.index, end: match.index + match[0].length },
+            position: { start: match.index, end: match.index + matchedValue.length },
           });
         }
       }
@@ -297,7 +446,7 @@ export class PermissionSentinel {
   restore(sanitized: string, originalValues: Map<string, string>): string {
     let restored = sanitized;
     for (const [placeholder, original] of originalValues) {
-      restored = restored.replace(placeholder, original);
+      restored = restored.replace(new RegExp(placeholder, 'g'), original);
     }
     return restored;
   }
@@ -390,6 +539,9 @@ export class PermissionSentinel {
     };
 
     this.actionLog.push(result);
+    if (this.actionLog.length > PermissionSentinel.MAX_ACTIONS) {
+      this.actionLog = this.actionLog.slice(-PermissionSentinel.MAX_ACTIONS);
+    }
     return result;
   }
 
